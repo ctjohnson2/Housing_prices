@@ -30,7 +30,7 @@ def main():
   ridge_reg = Ridge(alpha=1,solver="cholesky")
   svm_poly_reg = SVR(kernel="poly", degree=4, C=1e3)
   svm_rbf_reg = SVR(kernel="rbf", degree=12, C=1e6, epsilon=0.01) 
-  forest_reg = RandomForestRegressor(bootstrap=True,max_features=20,n_estimators=70)
+  forest_reg = RandomForestRegressor(bootstrap=False,max_features=16,n_estimators=70)
   from sklearn.ensemble import GradientBoostingRegressor
 
   gbr = GradientBoostingRegressor(max_depth=3,n_iter_no_change=5,validation_fraction=0.05)
