@@ -12,6 +12,8 @@ import matplotlib.pyplot as plt
 from warnings import simplefilter
 
 simplefilter(action='ignore',category=FutureWarning)
+
+### 
 def main():
 
   test, housing_data = defs.read_sets("test.csv","train.csv")

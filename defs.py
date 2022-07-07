@@ -101,6 +101,28 @@ def prep_sets(test,train):
   housing_data = train_set_enc 
   
   return housing_data
+
+def prep_set(train):
+
+  train_dat = read_set(train)
+
+  train_dat = clean_up_nans(train_dat)
+
+  from sklearn.model_selection import StratifiedShuffleSplit
+  split = StratifiedShuffleSplit(n_splits=1,test_size=0.1, random_state=42)
+
+  for train_ind, test_ind in split.split(train_dat,train_dat["Neighborhood"]):
+    train_list = train_ind
+    test_list = test_ind
+
+  housing_data = encode_data(train_dat)
+
+
+  housing_prices = housing_data["SalePrice"]
+  housing_data = housing_data.drop("SalePrice",axis=1)
+
+  return housing_data,housing_prices,sale_mean
+
 def prep_strat_set(train):
 
   train_dat = read_set(train)

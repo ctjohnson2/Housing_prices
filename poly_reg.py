@@ -11,35 +11,24 @@ from sklearn.metrics import mean_squared_error
 import matplotlib.pyplot as plt
 from sklearn.pipeline import Pipeline
 from sklearn.svm import SVR, SVC
+from warnings import simplefilter
 
-def plot_learning(model,x,y):
-
-  x_train,x_val,y_train,y_val = train_test_split(x,y,test_size=0.2)
-  train_err, val_err,sam_size = [],[],[]
-  for i in range(1,len(x_train),100):
-    sam_size.append(i)
-    model.fit(x_train[:i],y_train[:i])
-    y_train_predict = model.predict(x_train[:i])
-    y_val_predict = model.predict(x_val)
-    train_err.append(mean_squared_error(y_train[:i],y_train_predict[:i]))
-    val_err.append(mean_squared_error(y_val,y_val_predict))
-  plt.axis([0,1200,0,100000])
-  plt.plot(sam_size,np.sqrt(train_err),"r-+",linewidth=2,label="train")
-  plt.plot(sam_size,np.sqrt(val_err),"b-",linewidth=3,label="val")
-  plt.show()
+simplefilter(action='ignore',category=FutureWarning)
 
 def main():
 
-  housing_data, housing_prices = defs.prep_sets("test.csv","train.csv") 
+  
   
   #try a polynomial model
   
-  housing_train, housing_val, price_train, price_val = train_test_split(housing_data,housing_prices, test_size = 0.2)
-  poly_reg = Pipeline([("poly_features",PolynomialFeatures(degree=3,interaction_only=False,include_bias=False)),("lin_reg",LinearRegression()),])
+  housing_data = defs.read_set("train.csv")
+  housing_train, housing_val, price_train, price_val, sale_mean = defs.prep_strat_set("train.csv")
+
+  poly_reg = Pipeline([("poly_features",PolynomialFeatures(degree=2,interaction_only=False,include_bias=False)),("lin_reg",LinearRegression()),])
   scores = cross_val_score(poly_reg, housing_train, price_train,scoring="neg_mean_squared_error",cv=5)
   poly_rmse_scores = np.sqrt(-scores)
   
-  defs.display_scores(poly_rmse_scores)
+  defs.display_scores(poly_rmse_scores*sale_mean)
   
   poly_reg.fit(housing_train,price_train)
    
@@ -48,12 +37,12 @@ def main():
   housing_train_pred = poly_reg.predict(housing_train)
   housing_val_pred = poly_reg.predict(housing_val)
   
-  poly_mse_train = np.sqrt(mean_squared_error(price_train,housing_train_pred))
-  poly_mse_val = np.sqrt(mean_squared_error(price_val,housing_val_pred))
+  poly_mse_train = sale_mean*np.sqrt(mean_squared_error(price_train,housing_train_pred))
+  poly_mse_val = sale_mean*np.sqrt(mean_squared_error(price_val,housing_val_pred))
   print("Poly mean squared error: ", "train:",poly_mse_train,"validation:",poly_mse_val)  
   print(poly_reg.predict(housing_val)[:10])
   print(price_val[:10])
-
+  # seems even just a 2nd degree poly overfits
 if __name__ == "__main__":
 
   main()

@@ -22,39 +22,8 @@ def print_rmse(model,train,price_train,val,price_val,mean_):
   print(str(model),":",vote_rmse_train,vote_rmse_val)
 def main():
  
-  housing_data = defs.prep_sets("test.csv","train.csv")
-  attributes = []
-  for col in housing_data.columns:
-    attributes.append(col)
-
-  sale_min = housing_data["SalePrice"].min()
-  sale_max = housing_data["SalePrice"].max()
-  housing_prices = housing_data["SalePrice"]
-  housing_data = housing_data.drop("SalePrice",axis=1)
-
-  sale_mean = housing_prices.mean()
-  housing_prices = housing_prices/housing_prices.mean()
-  housing_train, housing_val, price_train, price_val = train_test_split(housing_data,housing_prices, test_size = 0.2)   
-  
-  test_dat, train_dat = defs.read_sets("test.csv","train.csv")
-
-  train_dat = defs.clean_up_nans(train_dat)
-  from sklearn.model_selection import StratifiedShuffleSplit
-  split = StratifiedShuffleSplit(n_splits=1,test_size=0.1, random_state=42)
-
-  for train_ind, test_ind in split.split(train_dat,train_dat["Neighborhood"]):
-    train_list = train_ind
-    test_list = test_ind
-
-  housing_data = defs.encode_data(train_dat)
-  housing_prices = housing_data["SalePrice"]
-  housing_data = housing_data.drop("SalePrice",axis=1)
-
-  sale_mean = housing_prices.mean()
-  housing_prices = housing_prices/housing_prices.mean()
-
-  housing_train, price_train = housing_data.iloc[train_list],housing_prices.iloc[train_list]
-  housing_val, price_val = housing_data.iloc[test_list], housing_prices.iloc[test_list]
+  housing_data = defs.read_set("train.csv")
+  housing_train, housing_val, price_train, price_val, sale_mean = defs.prep_strat_set("train.csv")
 
   lin_reg = LinearRegression()
   from sklearn.linear_model import Ridge
@@ -73,10 +42,11 @@ def main():
   xgb.fit(housing_train,price_train)
   forest_reg.fit(housing_train,price_train)
   vote = VotingRegressor(estimators=[('lr',ridge_reg),('gbr',gbr),('fr',forest_reg)])
-  print(housing_data.info())
+  
   print("Fitting model")
   
   vote.fit(housing_train,price_train)
+ 
   
   print_rmse(ridge_reg,housing_train,price_train,housing_val,price_val,sale_mean)
   print_rmse(gbr,housing_train,price_train,housing_val,price_val,sale_mean)
@@ -85,7 +55,40 @@ def main():
   
   housing_val_pred = vote.predict(housing_val)
   lin_mse_val =  np.sqrt(mean_squared_error(housing_val_pred,price_val))*sale_mean
+  
+  # plot learning rates
+  models = [ridge_reg,gbr,forest_reg,vote]
+  figure, axis = plt.subplots(2,3)
+  cx,cy =0,0
+  for model in models:
+    train_err, val_err,sam_size = [],[],[]
+    for i in range(20,len(housing_train),100):
+      sam_size.append(i)
+      model.fit(housing_train[:i],price_train[:i])
+      y_train_predict = model.predict(housing_train[:i])
+      y_val_predict = model.predict(housing_val)
+      train_err.append(mean_squared_error(price_train[:i],y_train_predict[:i]))
+      val_err.append(mean_squared_error(price_val,y_val_predict))
+    axis[cx,cy].plot(sam_size,sale_mean*np.sqrt(train_err),color="red")
+    axis[cx,cy].plot(sam_size,sale_mean*np.sqrt(val_err),color="blue")
+    if cx==cy==0:
+      title_="Ridge Regression"
+    elif cx ==0 and cy ==1:
+      title_="Gradient Boost"
+    elif cx ==0 and cy ==2:
+      title_="Random Forest"
+    elif cy ==0 and cx == 1:
+      title_="Vote Ensemble"
+    axis[cx,cy].set_title(title_)
+    cy+=1
+    if cy ==3:
+      cy =0
+      cx+=1
+    axis[1,1].set_axis_off()
+    axis[1,2].set_axis_off()
+  plt.show()
 
+  # plot hist of prices predicted versus sold
   x_ = range(len(housing_val_pred))
   plt.bar(x_,sale_mean*housing_val_pred,color='red',alpha=0.5,label='prediction')
   plt.bar(x_,sale_mean*price_val,color='blue',alpha=0.5,label='actual')
@@ -96,43 +99,47 @@ def main():
   plt.show()
 
 
-  '''g_type = housing_val["GarageType"]*6
-
   
-
-  for j in range(1,7):
-    one = []
-    pred = []
-    for i in range(len(g_type)):
-    
-      if g_type.values[i]==j:
-       
-       one.append(price_val.iloc[i])
-       pred.append(vote.predict(housing_val)[i])
- 
- 
-    rmse = np.sqrt(mean_squared_error(one,pred))
-    print("Garage",j,rmse*sale_mean,len(one))
-
-
-  g_type = housing_val["SaleCondition"]*5
-  
-  
-  for j in range(1,6):
-    one = []
-    pred = []
-    for i in range(len(g_type)):
-   
-      if g_type.values[i]==j:
-
-       one.append(price_val.iloc[i])
-       pred.append(vote.predict(housing_val)[i])
-
-    if len(one)!=0:
-
-         rmse = np.sqrt(mean_squared_error(one,pred))
-         print("SaleCond",j,rmse*sale_mean,len(one))
-'''
+  housing_val_total = housing_val.join(price_val)
+  #print(housing_data["Neighborhood"].unique())
+  neighborhoods=['CollgCr', 'Veenker', 'Crawfor', 'NoRidge','Mitchel','Somerst', 'NWAmes','OldTown', 'BrkSide', 'Sawyer', 'NridgHt','NAmes', 'SawyerW', 'IDOTRR','MeadowV', 'Edwards', 'Timber', 'Gilbert','StoneBr', 'ClearCr', 'NPkVill','Blmngtn', 'BrDale', 'SWISU','Blueste']
+  figure, axis = plt.subplots(5,6)
+  cx,cy=0,0
+  for col in housing_val_total.columns:
+    for hood in neighborhoods:
+      if col == (hood,):
+        print(col) 
+        df_new = housing_val_total.loc[housing_val_total[col] == 1.0]
+        if len(df_new)!=0:
+          price_new = df_new["SalePrice"]
+          df_new = df_new.drop("SalePrice",axis=1) 
+          pred = vote.predict(df_new)
+          lin_mse_val =  np.sqrt(mean_squared_error(pred,price_new))*sale_mean
+          print("hood:",hood,lin_mse_val)
+          x_ = range(len(pred))
+          if cx == cy and cx ==0:
+            axis[cx,cy].bar(x_,sale_mean*pred,color='red',alpha = 0.5,label='prediction')
+            axis[cx,cy].bar(x_,sale_mean*price_new,color='blue',alpha = 0.5,label = 'price')
+          else:
+            axis[cx,cy].bar(x_,sale_mean*pred,color='red',alpha = 0.5)
+            axis[cx,cy].bar(x_,sale_mean*price_new,color='blue',alpha = 0.5)
+          axis[cx,cy].axis([0,len(x_),0,500000])
+          axis[cx,cy].set_title(hood, fontsize=7)
+          axis[cx,cy].text(0,4e5,"RMSE= "+str(lin_mse_val),fontsize=5)
+          axis[cx,cy].set_xticks([])
+          axis[cx,cy].ticklabel_format(axis='y',style='sci',scilimits=(0,0))
+          
+          
+        else:
+          print("No validation for ",hood)
+          
+        cy +=1
+        if cy ==6:
+           cy = 0
+           cx+=1
+  figure.legend()
+  plt.yticks(fontsize=1)
+  plt.show()    
 if __name__=="__main__":
 
   main()
