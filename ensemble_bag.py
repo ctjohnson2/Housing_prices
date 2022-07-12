@@ -23,8 +23,8 @@ def print_rmse(model,train,price_train,val,price_val,mean_):
 def main():
  
   housing_data = defs.read_set("train.csv")
-  housing_train, housing_val, price_train, price_val, sale_mean = defs.prep_strat_set("train.csv")
-
+  
+  housing_train, housing_val, price_train, price_val, sale_mean = defs.prep_strat_set("train.csv",0.1)
   lin_reg = LinearRegression()
   from sklearn.linear_model import Ridge
   ridge_reg = Ridge(alpha=1,solver="cholesky")

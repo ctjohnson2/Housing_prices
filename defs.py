@@ -62,7 +62,7 @@ def encode_data(data):
         rest.append(attr)
   data_new = data.copy()
 
-  
+  print(rest)  
   for obj_ in hot_list:
     #print(obj_)
     cat_encoder = OneHotEncoder()
@@ -76,10 +76,12 @@ def encode_data(data):
 
   ordinal_encoder = OrdinalEncoder()
   data_enc = data_new.copy()
+  min_max_scaler = preprocessing.MinMaxScaler()
   for attr in one_code:
     tmp = ordinal_encoder.fit_transform(data_new[[attr]])
+    tmp = min_max_scaler.fit_transform(tmp)
     data_enc[[attr]] = tmp
-  min_max_scaler = preprocessing.MinMaxScaler()
+  
   for attr in rest:
     if attr!="SalePrice":
       dat_scaled = min_max_scaler.fit_transform(data_enc[[attr]])
@@ -123,14 +125,14 @@ def prep_set(train):
 
   return housing_data,housing_prices,sale_mean
 
-def prep_strat_set(train):
+def prep_strat_set(train,split_size):
 
   train_dat = read_set(train)
 
   train_dat = clean_up_nans(train_dat)
   
   from sklearn.model_selection import StratifiedShuffleSplit
-  split = StratifiedShuffleSplit(n_splits=1,test_size=0.1, random_state=42)
+  split = StratifiedShuffleSplit(n_splits=1,test_size=split_size, random_state=42)
 
   for train_ind, test_ind in split.split(train_dat,train_dat["Neighborhood"]):
     train_list = train_ind
